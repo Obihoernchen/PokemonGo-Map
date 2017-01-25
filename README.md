@@ -1,4 +1,6 @@
-# This is a fork of PokemonGo Map to complete the Pokemon Go Tutorial for a number of accounts while simultaneously become level 2 when completing it next to a Pokestop due to the "First Pokestop of the Day" bonus.
+# PokemonGo-Map Tutorial for LvL-2 accounts 
+
+This is a fork/branch of PokemonGo Map to complete the Pokemon Go Tutorial for a number of accounts while simultaneously become level 2 when completing it next to a Pokestop due to the "First Pokestop of the Day" bonus.
 
 ## Instruction
 * Install it like any PokemonGo Map and how written below in the regular README.md of that project. 
