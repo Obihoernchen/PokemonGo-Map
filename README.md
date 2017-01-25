@@ -5,7 +5,7 @@ This is a fork/branch of PokemonGo Map to complete the Pokemon Go Tutorial for a
 ## Instruction
 * Install it like any PokemonGo Map and how written below in the regular README.md of that project. 
 * Look into the "runtutorial.sh" for some informations about the shell script and special flags for "runserver.py" command
-* Have a look into the "config.tutorial.ini" file, add DB, G-Maps key and location
+* Have a look into the "config.tutorial.ini" file, add DB, G-Maps key and location, set it next to a known Pokestop
 * Fill "accounts/tutorial.csv" and remove the example line
 * Run the Shell script "runtutorial.sh"
 
