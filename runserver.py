@@ -313,8 +313,6 @@ def main():
                 log.info('Saving spawn points to %s', args.spawnpoint_scanning)
                 spawns = SpawnPoint.get_spawnpoints_in_hex(
                     position, args.step_limit)
-                spawns += SpawnpointDetectionData.get_spawnpoints_in_hex(
-                    position, args.step_limit)
                 file.write(json.dumps(spawns))
                 log.info('Finished exporting spawn points')
 

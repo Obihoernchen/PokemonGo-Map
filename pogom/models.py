@@ -1375,20 +1375,17 @@ class SpawnPoint(BaseModel):
 
         n, e, s, w = hex_bounds(center, steps)
 
-        query = (SpawnPoint
-                 .select(SpawnPoint.id.alias('id'),
-                         SpawnPoint.latitude.alias('lat'),
-                         SpawnPoint.longitude.alias('lng'),
-                         SpawnPoint.kind.alias('kind'),
-                         SpawnPoint.links.alias('links'),
-                         ))
+        query = (SpawnPoint.select())
         query = (query.where((SpawnPoint.latitude <= n) &
                              (SpawnPoint.latitude >= s) &
                              (SpawnPoint.longitude >= w) &
                              (SpawnPoint.longitude <= e)
                              ))
-        # Sqlite doesn't support distinct on columns. (distinct has no effect on mysql either)
-        query = query.group_by(SpawnPoint.id)
+        # Sqlite doesn't support distinct on columns.
+        if args.db_type == 'mysql':
+            query = query.distinct(SpawnPoint.id)
+        else:
+            query = query.group_by(SpawnPoint.id)
 
         s = list(query.dicts())
 
@@ -1401,19 +1398,15 @@ class SpawnPoint(BaseModel):
 
         for idx, sp in enumerate(s):
             if geopy.distance.distance(
-                    center, (sp['lat'], sp['lng'])).meters <= step_distance:
-                filtered.append(s[idx])
+                    center, (sp['latitude'], sp['longitude'])).meters <= step_distance:
+	
+                # build spawnpoint with start and end time for json
+                spawnpoint = {"spawnpoint_id": sp['id'], "lat": sp['latitude'], "long": sp['longitude']}
+                time = SpawnPoint.start_end(sp, args.spawn_delay)
+                spawnpoint['start'] = time[0]
+                spawnpoint['end'] = time[1] 
 
-        # At this point, 'time' is DISAPPEARANCE time, we're going to morph it
-        # to APPEARANCE time accounting for hour wraparound.
-        for location in filtered:
-            # todo: this DOES NOT ACCOUNT for Pokemon that appear sooner and
-            # live longer, but you'll _always_ have at least 15 minutes, so it
-            # works well enough.
-            location['time'] = cls.get_spawn_time(location['time'])
-
-        if args.sscluster:
-            filtered = cluster.cluster_spawnpoints(filtered)
+                filtered.append(spawnpoint)
 
         return filtered
 
@@ -1630,18 +1623,6 @@ class SpawnpointDetectionData(BaseModel):
             sp['latest_seen'] = new_secs
 
         return True
-
-    @classmethod
-    def get_spawnpoints_in_hex(cls, center, steps):
-        log.info('Finding spawnpoints {} steps away.'.format(steps))
-
-        query = (SpawnpointDetectionData
-                 .select(SpawnpointDetectionData.latitude.alias('tth'),
-                         ))
-    
-        s = list(query.dicts())
-
-        return s
 
 
 class Versions(flaskDb.Model):
