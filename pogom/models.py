@@ -1194,6 +1194,7 @@ class SpawnPoint(BaseModel):
     latitude = DoubleField()
     longitude = DoubleField()
     last_scanned = DateTimeField(index=True)
+
     # kind gives the four quartiles of the spawn, as 's' for seen
     # or 'h' for hidden.  For example, a 30 minute spawn is 'hhss'.
     kind = CharField(max_length=4, default='hhhs')
@@ -1367,6 +1368,54 @@ class SpawnPoint(BaseModel):
             # If it gets to here it's a good spawn.
             in_hex.append(spawn)
         return in_hex
+
+    @classmethod
+    def get_spawnpoints_in_hex(cls, center, steps):
+        log.info('Finding spawnpoints {} steps away.'.format(steps))
+
+        n, e, s, w = hex_bounds(center, steps)
+
+        query = (SpawnPoint
+                 .select(SpawnPoint.id.alias('id'),
+                         SpawnPoint.latitude.alias('lat'),
+                         SpawnPoint.longitude.alias('lng'),
+                         SpawnPoint.kind.alias('kind'),
+                         SpawnPoint.links.alias('links'),
+                         ))
+        query = (query.where((SpawnPoint.latitude <= n) &
+                             (SpawnPoint.latitude >= s) &
+                             (SpawnPoint.longitude >= w) &
+                             (SpawnPoint.longitude <= e)
+                             ))
+        # Sqlite doesn't support distinct on columns. (distinct has no effect on mysql either)
+        query = query.group_by(SpawnPoint.id)
+
+        s = list(query.dicts())
+
+        # The distance between scan circles of radius 70 in a hex is 121.2436
+        # steps - 1 to account for the center circle then add 70 for the edge.
+        step_distance = ((steps - 1) * 121.2436) + 70
+        # Compare spawnpoint list to a circle with radius steps * 120.
+        # Uses the direct geopy distance between the center and the spawnpoint.
+        filtered = []
+
+        for idx, sp in enumerate(s):
+            if geopy.distance.distance(
+                    center, (sp['lat'], sp['lng'])).meters <= step_distance:
+                filtered.append(s[idx])
+
+        # At this point, 'time' is DISAPPEARANCE time, we're going to morph it
+        # to APPEARANCE time accounting for hour wraparound.
+        for location in filtered:
+            # todo: this DOES NOT ACCOUNT for Pokemon that appear sooner and
+            # live longer, but you'll _always_ have at least 15 minutes, so it
+            # works well enough.
+            location['time'] = cls.get_spawn_time(location['time'])
+
+        if args.sscluster:
+            filtered = cluster.cluster_spawnpoints(filtered)
+
+        return filtered
 
 
 class ScanSpawnPoint(BaseModel):
@@ -1581,6 +1630,18 @@ class SpawnpointDetectionData(BaseModel):
             sp['latest_seen'] = new_secs
 
         return True
+
+    @classmethod
+    def get_spawnpoints_in_hex(cls, center, steps):
+        log.info('Finding spawnpoints {} steps away.'.format(steps))
+
+        query = (SpawnpointDetectionData
+                 .select(SpawnpointDetectionData.latitude.alias('tth'),
+                         ))
+    
+        s = list(query.dicts())
+
+        return s
 
 
 class Versions(flaskDb.Model):

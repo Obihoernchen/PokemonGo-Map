@@ -17,6 +17,8 @@ class Spawnpoint(object):
         
         self.time = data['time']
         
+        self.endtime = self.time + data['kind'].count('s') * 900
+
     def serialize(self):
         obj = dict()
 
@@ -25,6 +27,7 @@ class Spawnpoint(object):
         obj['latitude'] = self.position[0]
         obj['longitude'] = self.position[1]
         obj['time'] = self.time
+        obj['endtime'] = self.endtime
 
         return obj
         
@@ -34,7 +37,8 @@ class Spawncluster(object):
         self.centroid = spawnpoint.position
         self.min_time = spawnpoint.time
         self.max_time = spawnpoint.time
-        
+        self.end_time = spawnpoint.endtime
+
     def __getitem__(self, key):
         return self._spawnpoints[key]
     
@@ -60,6 +64,9 @@ class Spawncluster(object):
             
         if spawnpoint.time > self.max_time:
             self.max_time = spawnpoint.time
+
+        if spawnpoint.endtime < self.end_time:
+            self.end_time = spawnpoint.endtime
             
     def simulate_centroid(self, spawnpoint):
         f = len(self._spawnpoints) / (len(self._spawnpoints) + 1.0)
@@ -172,10 +179,12 @@ def main(args):
                 row['spawnpoint_id'] = random.choice(c).spawnpoint_id
                 row['latitude'] = c.centroid[0]
                 row['longitude'] = c.centroid[1]
+                row['endtime'] = c.end_time
             else:
                 row['sid'] = random.choice(c).spawnpoint_id
                 row['lat'] = c.centroid[0]
                 row['lng'] = c.centroid[1]
+                row['etime'] = c.end_time
             # pick the latest time so earlier spawnpoints have already spawned
             row['time'] = c.max_time
             rows.append(row)

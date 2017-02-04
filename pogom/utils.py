@@ -276,6 +276,9 @@ def get_args():
     parser.add_argument('--dump-spawnpoints',
                         help=('Dump the spawnpoints from the db to json ' +
                               '(only for use with -ss).'),
+    parser.add_argument('-ssc', '--speed-spawnpoint-clustering',
+                        help=('Scan clustered spawnpoints with speed scan ' +
+                              'and profit.'),
                         action='store_true', default=False)
     parser.add_argument('-pd', '--purge-data',
                         help=('Clear Pokemon from database this many hours ' +
