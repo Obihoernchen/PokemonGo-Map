@@ -10,6 +10,7 @@ import gc
 import time
 import geopy
 import math
+import cluster
 from peewee import InsertQuery, \
     Check, CompositeKey, ForeignKeyField, \
     IntegerField, CharField, DoubleField, BooleanField, \
@@ -392,11 +393,8 @@ class Pokemon(BaseModel):
                              (Pokemon.longitude >= w) &
                              (Pokemon.longitude <= e)
                              ))
-        # Sqlite doesn't support distinct on columns.
-        if args.db_type == 'mysql':
-            query = query.distinct(Pokemon.spawnpoint_id)
-        else:
-            query = query.group_by(Pokemon.spawnpoint_id)
+        # Sqlite doesn't support distinct on columns. (distinct has no effect on mysql either)
+        query = query.group_by(Pokemon.spawnpoint_id)
 
         s = list(query.dicts())
 
@@ -419,6 +417,9 @@ class Pokemon(BaseModel):
             # live longer, but you'll _always_ have at least 15 minutes, so it
             # works well enough.
             location['time'] = cls.get_spawn_time(location['time'])
+
+        if args.sscluster:
+            filtered = cluster.main(filtered)
 
         return filtered
 
