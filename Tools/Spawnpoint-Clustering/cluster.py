@@ -17,6 +17,8 @@ class Spawnpoint(object):
         
         self.start = data['start']
         self.end = data['end']
+        if self.end < self.start:
+            self.end += 3600
 
     def serialize(self):
         obj = dict()
