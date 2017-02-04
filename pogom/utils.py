@@ -276,6 +276,7 @@ def get_args():
     parser.add_argument('--dump-spawnpoints',
                         help=('Dump the spawnpoints from the db to json ' +
                               '(only for use with -ss).'),
+                        action='store_true', default=False)
     parser.add_argument('-ssc', '--speed-spawnpoint-clustering',
                         help=('Scan clustered spawnpoints with speed scan ' +
                               'and profit.'),
