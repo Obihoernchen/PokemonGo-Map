@@ -281,6 +281,10 @@ def get_args():
                         help=('Set a maximum speed in km/hour for scanner ' +
                               'movement.'),
                         type=int, default=35)
+    parser.add_argument('-ssc', '--speed-spawnpoint-clustering',
+                        help=('Scan clustered spawnpoints with speed scan ' +
+                              'and profit.'),
+                        action='store_true', default=False)
     parser.add_argument('-pd', '--purge-data',
                         help=('Clear Pokemon from database this many hours ' +
                               'after they disappear (0 to disable).'),

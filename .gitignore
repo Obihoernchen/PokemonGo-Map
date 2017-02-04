@@ -30,3 +30,4 @@ static/pixel_icons/*.png
 !contrib/supervisord/install-reinstall.sh
 !static/data/*
 !static/icons/hsl*.png
+*.DS_Store
