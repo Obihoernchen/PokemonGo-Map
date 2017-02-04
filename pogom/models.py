@@ -419,7 +419,7 @@ class Pokemon(BaseModel):
             location['time'] = cls.get_spawn_time(location['time'])
 
         if args.sscluster:
-            filtered = cluster.main(filtered)
+            filtered = cluster.cluster_spawnpoints(filtered)
 
         return filtered
 

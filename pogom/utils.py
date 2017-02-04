@@ -551,8 +551,10 @@ def get_args():
             num_usernames = len(args.username)
 
         if args.sscluster:
-            if args.spawnpoint_scanning is False:
-                errors.append('You enabled spawnpoint clustering, but without using spawnpoints!')
+            if not args.spawnpoint_scanning:
+                errors.append(
+                    'You enabled spawnpoint clustering, but without ' +
+                    'using the --spawnpoint-scanning scheduler!')
 
         if args.location is None:
             errors.append(

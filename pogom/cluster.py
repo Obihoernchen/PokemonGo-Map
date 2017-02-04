@@ -3,7 +3,7 @@ import random
 import clsmath
 
 
-class Spawnpoint(object):
+class ClusterSpawnpoint(object):
     def __init__(self, data):
         # not needed but useful for debugging
         self.spawnpoint_id = data.get('spawnpoint_id') or data.get('sid')
@@ -24,7 +24,7 @@ class Spawnpoint(object):
         return obj
 
 
-class Spawncluster(object):
+class SpawnCluster(object):
     def __init__(self, spawnpoint):
         self._spawnpoints = [spawnpoint]
         self.centroid = spawnpoint.position
@@ -53,8 +53,7 @@ class Spawncluster(object):
 
         if spawnpoint.time < self.min_time:
             self.min_time = spawnpoint.time
-
-        if spawnpoint.time > self.max_time:
+        elif spawnpoint.time > self.max_time:
             self.max_time = spawnpoint.time
 
     def simulate_centroid(self, spawnpoint):
@@ -119,10 +118,10 @@ def test(cluster, radius, time_threshold):
         assert cluster.min_time <= p.time <= cluster.max_time
 
 
-def main(raw):
+def cluster_spawnpoints(raw):
     radius = 70
     time_threshold = 180  # 4 minutes is alright to grab a pokemon since most times are 30m+
-    spawnpoints = [Spawnpoint(x) for x in raw]  # separate them
+    spawnpoints = [ClusterSpawnpoint(x) for x in raw]  # separate them
     clusters = cluster(spawnpoints, radius, time_threshold)
 
     try:
