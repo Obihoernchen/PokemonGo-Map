@@ -701,17 +701,43 @@ class SpeedScan(HexSearch):
             for sp in sps:
                 sp_by_id[sp['id']] = sp
 
-        for cell, scan in self.scans.iteritems():
-            queue += ScannedLocation.get_times(scan, now_date,
-                                               scanned_locations)
-            queue += SpawnPoint.get_times(cell, scan, now_date,
-                                          self.args.spawn_delay,
-                                          cell_to_linked_spawn_points,
-                                          sp_by_id)
+        #for cell, scan in self.scans.iteritems():
+        #    queue += ScannedLocation.get_times(scan, now_date,
+        #                                        scanned_locations)
+        #     queue += SpawnPoint.get_times(cell, scan, now_date,
+        #                                  self.args.spawn_delay,
+        #                                  cell_to_linked_spawn_points,
+        #                                  sp_by_id)
+        #                                       scanned_locations)
+
+        # Attempt to load spawns from file.
+        if self.args.spawnpoint_scanning != 'nofile':
+            log.debug('Loading spawn points from json file @ %s',
+                      self.args.spawnpoint_scanning)
+            try:
+                with open(self.args.spawnpoint_scanning) as file:
+                    loaded_spawns = json.load(file)
+            except ValueError as e:
+                log.error('JSON error: %s; will fallback to database', repr(e))
+            except IOError as e:
+                log.error(
+                    'Error opening json file: %s; will fallback to database',
+                    repr(e))
+        # Match expected structure:
+        # locations = {loc:(lat, lng, alt), kind, end, sp, start, step}
+        for step, spawn in enumerate(loaded_spawns, 1):
+            altitude = get_altitude(self.args, [spawn['lat'],
+                                    spawn['lng']])
+            entry = {'loc': (spawn['lat'], spawn['lng'], altitude),
+                      'kind': 'spawn', 'end': spawn['end'], 'sp': spawn['sid'],
+                      'start': spawn['start'], 'step': step}
+            queue.append(entry)
+
         end = time.time()
 
         queue.sort(key=itemgetter('start'))
         self.queues[0] = queue
+        log.debug(self.queues[0])
         self.ready = True
         log.info('New queue created with %d entries in %f seconds', len(queue),
                  (end - start))

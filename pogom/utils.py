@@ -633,9 +633,9 @@ def get_args():
                                         args.encounter_whitelist]
 
         # Decide which scanning mode to use.
-        if args.spawnpoint_scanning:
-            args.scheduler = 'SpawnScan'
-        elif args.skip_empty:
+        #if args.spawnpoint_scanning:
+        #    args.scheduler = 'SpawnScan'
+        if args.skip_empty:
             args.scheduler = 'HexSearchSpawnpoint'
         elif args.speed_scan:
             args.scheduler = 'SpeedScan'
