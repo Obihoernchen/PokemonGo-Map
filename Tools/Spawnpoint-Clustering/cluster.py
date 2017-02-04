@@ -15,9 +15,8 @@ class Spawnpoint(object):
         except KeyError:
             self.position = (float(data['lat']), float(data['lng']))
         
-        self.time = data['time']
-        
-        self.endtime = self.time + data['kind'].count('s') * 900
+        self.start = data['start']
+        self.end = data['end']
 
     def serialize(self):
         obj = dict()
@@ -26,8 +25,8 @@ class Spawnpoint(object):
             obj['spawnpoint_id'] = self.spawnpoint_id
         obj['latitude'] = self.position[0]
         obj['longitude'] = self.position[1]
-        obj['time'] = self.time
-        obj['endtime'] = self.endtime
+        obj['start'] = self.start
+        obj['end'] = self.end
 
         return obj
         
@@ -35,9 +34,9 @@ class Spawncluster(object):
     def __init__(self, spawnpoint):
         self._spawnpoints = [spawnpoint]
         self.centroid = spawnpoint.position
-        self.min_time = spawnpoint.time
-        self.max_time = spawnpoint.time
-        self.end_time = spawnpoint.endtime
+        self.min_start_time = spawnpoint.start
+        self.max_start_time = spawnpoint.start
+        self.min_end_time = spawnpoint.end
 
     def __getitem__(self, key):
         return self._spawnpoints[key]
@@ -59,14 +58,14 @@ class Spawncluster(object):
         
         self._spawnpoints.append(spawnpoint)
         
-        if spawnpoint.time < self.min_time:
-            self.min_time = spawnpoint.time
+        if spawnpoint.start < self.min_start_time:
+            self.min_start_time = spawnpoint.start
             
-        if spawnpoint.time > self.max_time:
-            self.max_time = spawnpoint.time
+        if spawnpoint.start > self.max_start_time:
+            self.max_start_time = spawnpoint.start
 
-        if spawnpoint.endtime < self.end_time:
-            self.end_time = spawnpoint.endtime
+        if spawnpoint.end < self.min_end_time:
+            self.min_end_time = spawnpoint.end
             
     def simulate_centroid(self, spawnpoint):
         f = len(self._spawnpoints) / (len(self._spawnpoints) + 1.0)
@@ -77,8 +76,8 @@ class Spawncluster(object):
 def cost(spawnpoint, cluster, time_threshold):
     distance = utils.distance(spawnpoint.position, cluster.centroid)
 
-    min_time = min(cluster.min_time, spawnpoint.time)
-    max_time = max(cluster.max_time, spawnpoint.time)
+    min_time = min(cluster.min_start_time, spawnpoint.start)
+    max_time = max(cluster.max_start_time, spawnpoint.start)
 
     if max_time - min_time > time_threshold:
         return float('inf')
@@ -121,11 +120,11 @@ def cluster(spawnpoints, radius, time_threshold):
   return clusters
   
 def test(cluster, radius, time_threshold):
-    assert cluster.max_time - cluster.min_time <= time_threshold
+    assert cluster.max_start_time - cluster.min_start_time <= time_threshold
     
     for p in cluster:
         assert utils.distance(p.position, cluster.centroid) <= radius
-        assert cluster.min_time <= p.time <= cluster.max_time
+        assert cluster.min_start_time <= p.start <= cluster.max_start_time
 
 def main(args):
     radius = args.radius
@@ -162,8 +161,9 @@ def main(args):
             row['spawnpoints'] = [x.serialize() for x in c]
             row['latitude'] = c.centroid[0]
             row['longitude'] = c.centroid[1]
-            row['min_time'] = c.min_time
-            row['max_time'] = c.max_time
+            row['min_start_time'] = c.min_start_time
+            row['max_start_time'] = c.max_start_time
+            row['min_end_time'] = c.min_end_time
             rows.append(row)
      
         with open(args.output_clusters, 'w') as f:
@@ -179,14 +179,13 @@ def main(args):
                 row['spawnpoint_id'] = random.choice(c).spawnpoint_id
                 row['latitude'] = c.centroid[0]
                 row['longitude'] = c.centroid[1]
-                row['endtime'] = c.end_time
             else:
                 row['sid'] = random.choice(c).spawnpoint_id
                 row['lat'] = c.centroid[0]
                 row['lng'] = c.centroid[1]
-                row['etime'] = c.end_time
             # pick the latest time so earlier spawnpoints have already spawned
-            row['time'] = c.max_time
+            row['start'] = c.max_start_time
+            row['end'] = c.min_end_time
             rows.append(row)
         
         with open(args.output_spawnpoints, 'w') as f:

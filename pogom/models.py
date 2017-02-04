@@ -1401,7 +1401,7 @@ class SpawnPoint(BaseModel):
                     center, (sp['latitude'], sp['longitude'])).meters <= step_distance:
 	
                 # build spawnpoint with start and end time for json
-                spawnpoint = {"spawnpoint_id": sp['id'], "lat": sp['latitude'], "long": sp['longitude']}
+                spawnpoint = {"spawnpoint_id": sp['id'], "lat": sp['latitude'], "lng": sp['longitude']}
                 time = SpawnPoint.start_end(sp, args.spawn_delay)
                 spawnpoint['start'] = time[0]
                 spawnpoint['end'] = time[1] 
