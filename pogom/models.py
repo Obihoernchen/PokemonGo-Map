@@ -1815,9 +1815,30 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                     (f['last_modified'] -
                      datetime(1970, 1, 1)).total_seconds())) for f in query]
 
+        player_level = 0
+        pokestop_spinning = False
+        inventory_items = map_dict['responses'].get(
+            'GET_INVENTORY', {}).get(
+            'inventory_delta', {}).get(
+            'inventory_items', [])
+        player_stats = [item['inventory_item_data']['player_stats']
+        for item in inventory_items
+            if 'player_stats' in item.get(
+                  'inventory_item_data', {})]
+        if len(player_stats) > 0:
+            player_level = player_stats[0].get('level', 1)
+            if player_level < 2:
+                pokestop_spinning = True
+                log.info('Pokestop-Spinning - Account is level %d. Continuing ...', player_level)
+            else:
+                pokestop_spinning = False
+                log.info('Pokestop-Spinning - Not needed. Account is already level %d.', player_level)
+        else:
+            log.warning('Pokestop-Spinning - Account level could not be determined')
+
         for f in forts:
             if config['parse_pokestops'] and f.get('type') == 1:  # Pokestops.
-                if args.complete_tutorial:    
+                if args.complete_tutorial and pokestop_spinning:    
                     distance = 0.04
                     if in_radius((f['latitude'], f['longitude']), step_location, distance):
                         spin_result = None
@@ -1848,19 +1869,19 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                                 log.info('Pokestop-Spinning - Spinning attempt succeeded')
                                 spin_result = 1
                             elif spin_response['responses']['FORT_SEARCH']['result'] is 2:
-                                log.info('Pokestop-Spinning - Stop is out of range - this formula needs fixing')
+                                log.info('Pokestop-Spinning - Pokestop out of range')
                                 spin_result = 'Failed'
                             elif spin_response['responses']['FORT_SEARCH']['result'] is 3:
-                                log.info('Pokestop-Spinning - Already spun this stop - check for this one day')
+                                log.info('Pokestop-Spinning - Pokestop already spun')
                                 spin_result = 'Failed'
                             elif spin_response['responses']['FORT_SEARCH']['result'] is 4:
-                                log.info('Pokestop-Spinning - Inventory is full (idk how you managed this one)')
+                                log.info('Pokestop-Spinning - Inventory full')
                                 spin_result = 'Failed'
                             elif spin_response['responses']['FORT_SEARCH']['result'] is 5:
-                                log.info('Pokestop-Spinning - Maximum spun stops for the day - idk how you managed this either')
+                                log.info('Pokestop-Spinning - Pokestop not spinable (maybe maximum number already spun)')
                                 spin_result = 'Failed'
                             else:
-                                log.info('Pokestop-Spinning - No result set - weird error - abort mission')
+                                log.info('Pokestop-Spinning - No result, aborted')
                                 spin_result = 'Failed'
 
                 if 'active_fort_modifier' in f:
