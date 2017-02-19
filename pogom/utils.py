@@ -9,8 +9,11 @@ import json
 import logging
 import shutil
 import pprint
-import time
 import random
+import time
+import socket
+import struct
+import requests
 from uuid import uuid4
 from s2sphere import CellId, LatLng
 
@@ -95,6 +98,19 @@ def get_args():
                         type=int, default=1)
     parser.add_argument('-l', '--location', type=parse_unicode,
                         help='Location, can be an address or coordinates.')
+    # Default based on the average elevation of cities around the world.
+    # Source: https://www.wikiwand.com/en/List_of_cities_by_elevation
+    parser.add_argument('-alt', '--altitude',
+                        help='Default altitude in meters.',
+                        type=int, default=507)
+    parser.add_argument('-altv', '--altitude-variance',
+                        help='Variance for --altitude in meters',
+                        type=int, default=1)
+    parser.add_argument('-uac', '--use-altitude-cache',
+                        help=('Query the Elevation API for each step,' +
+                              ' rather than only once, and store results in' +
+                              ' the database.'),
+                        action='store_true', default=False)
     parser.add_argument('-nj', '--no-jitter',
                         help=("Don't apply random -9m to +9m jitter to " +
                               "location."),
@@ -120,6 +136,17 @@ def get_args():
     parser.add_argument('-cds', '--captcha-dsk',
                         help='PokemonGo captcha data-sitekey.',
                         default="6LeeTScTAAAAADqvhqVMhPpr_vB9D364Ia-1dSgK")
+    parser.add_argument('-mcd', '--manual-captcha-domain',
+                        help='Domain to where captcha tokens will be sent.',
+                        default="http://127.0.0.1:5000")
+    parser.add_argument('-mcr', '--manual-captcha-refresh',
+                        help='Time available before captcha page refreshes.',
+                        type=int, default=30)
+    parser.add_argument('-mct', '--manual-captcha-timeout',
+                        help='Maximum time captchas will wait for manual ' +
+                        'captcha solving. On timeout, if enabled, 2Captcha ' +
+                        'will be used to solve captcha. Default is 0.',
+                        type=int, default=0)
     parser.add_argument('-ed', '--encounter-delay',
                         help=('Time delay between encounter pokemon ' +
                               'in scan threads.'),
@@ -133,12 +160,20 @@ def get_args():
                                 action='append', default=[],
                                 help=('List of Pokemon to NOT encounter for ' +
                                       'more stats.'))
+    encounter_list.add_argument('-ewhtf', '--encounter-whitelist-file',
+                                default='', help='File containing a list of '
+                                                 'Pokemon to encounter for'
+                                                 ' more stats.')
+    encounter_list.add_argument('-eblkf', '--encounter-blacklist-file',
+                                default='', help='File containing a list of '
+                                                 'Pokemon to NOT encounter for'
+                                                 ' more stats.')
     parser.add_argument('-ld', '--login-delay',
                         help='Time delay between each login attempt.',
                         type=float, default=6)
     parser.add_argument('-lr', '--login-retries',
-                        help=('Number of login attempts before refreshing ' +
-                              'a thread.'),
+                        help=('Number of times to retry the login before ' +
+                              'refreshing a thread.'),
                         type=int, default=3)
     parser.add_argument('-mf', '--max-failures',
                         help=('Maximum number of failures to parse ' +
@@ -303,13 +338,16 @@ def get_args():
                         help=('Number of webhook threads; increase if the ' +
                               'webhook queue falls behind.'),
                         type=int, default=1)
+    parser.add_argument('-whc', '--wh-concurrency',
+                        help=('Async requests pool size.'), type=int,
+                        default=25)
     parser.add_argument('-whr', '--wh-retries',
                         help=('Number of times to retry sending webhook ' +
                               'data on failure.'),
-                        type=int, default=5)
+                        type=int, default=3)
     parser.add_argument('-wht', '--wh-timeout',
                         help='Timeout (in seconds) for webhook requests.',
-                        type=int, default=2)
+                        type=float, default=1.0)
     parser.add_argument('-whbf', '--wh-backoff-factor',
                         help=('Factor (in seconds) by which the delay ' +
                               'until next retry will increase.'),
@@ -360,6 +398,9 @@ def get_args():
                         help=('Pause searching while web UI is inactive ' +
                               'for this timeout (in seconds).'),
                         type=int, default=0)
+    parser.add_argument('--disable-blacklist',
+                        help=('Disable the global anti-scraper IP blacklist.'),
+                        action='store_true', default=False)
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose',
                            help=('Show debug messages from PokemonGo-Map ' +
@@ -580,8 +621,19 @@ def get_args():
                   "--accountcsv to add accounts.")
             sys.exit(1)
 
-        args.encounter_blacklist = [int(i) for i in args.encounter_blacklist]
-        args.encounter_whitelist = [int(i) for i in args.encounter_whitelist]
+        if args.encounter_whitelist_file:
+            with open(args.encounter_whitelist_file) as f:
+                args.encounter_whitelist = [get_pokemon_id(name) for name in
+                                            f.read().splitlines()]
+        elif args.encounter_blacklist_file:
+            with open(args.encounter_blacklist_file) as f:
+                args.encounter_blacklist = [get_pokemon_id(name) for name in
+                                            f.read().splitlines()]
+        else:
+            args.encounter_blacklist = [int(i) for i in
+                                        args.encounter_blacklist]
+            args.encounter_whitelist = [int(i) for i in
+                                        args.encounter_whitelist]
 
         # Decide which scanning mode to use.
         if args.spawnpoint_scanning:
@@ -684,6 +736,19 @@ def get_pokemon_data(pokemon_id):
     return get_pokemon_data.pokemon[str(pokemon_id)]
 
 
+def get_pokemon_id(pokemon_name):
+    if not hasattr(get_pokemon_id, 'ids'):
+        if not hasattr(get_pokemon_data, 'pokemon'):
+            # initialize from file
+            get_pokemon_data(1)
+
+        get_pokemon_id.ids = {}
+        for pokemon_id, data in get_pokemon_data.pokemon.iteritems():
+            get_pokemon_id.ids[data['name']] = int(pokemon_id)
+
+    return get_pokemon_id.ids.get(pokemon_name, -1)
+
+
 def get_pokemon_name(pokemon_id):
     return i8ln(get_pokemon_data(pokemon_id)['name'])
 
@@ -723,7 +788,8 @@ def get_move_energy(move_id):
 
 
 def get_move_type(move_id):
-    return i8ln(get_moves_data(move_id)['type'])
+    move_type = get_moves_data(move_id)['type']
+    return {"type": i8ln(move_type), "type_en": move_type}
 
 
 class Timer():
@@ -744,6 +810,7 @@ class Timer():
         pprint.pprint(self.times)
 
 
+<<<<<<< HEAD
 # Check if all important tutorial steps have been completed.
 # API argument needs to be a logged in API instance.
 def get_tutorial_state(api, account):
@@ -884,6 +951,19 @@ def complete_tutorial(api, account, tutorial_state):
     time.sleep(random.uniform(2, 4))
     return True
 
+def dottedQuadToNum(ip):
+    return struct.unpack("!L", socket.inet_aton(ip))[0]
+
+
+def get_blacklist():
+    try:
+        url = 'https://blist.devkat.org/blacklist.json'
+        blacklist = requests.get(url).json()
+        log.debug('Entries in blacklist: %s.', len(blacklist))
+        return blacklist
+    except (requests.exceptions.RequestException, IndexError, KeyError):
+        log.error('Unable to retrieve blacklist, setting to empty.')
+        return []
 
 
 # Generate random device info.

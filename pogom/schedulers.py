@@ -58,9 +58,10 @@ from queue import Empty
 from operator import itemgetter
 from datetime import datetime, timedelta
 from .transform import get_new_coords
-from .models import (hex_bounds, Pokemon, SpawnPoint,
-                     ScannedLocation, ScanSpawnPoint)
+from .models import (hex_bounds, Pokemon, SpawnPoint, ScannedLocation,
+                     ScanSpawnPoint)
 from .utils import now, cur_sec, cellid, date_secs, equi_rect_distance
+from .altitude import get_altitude
 
 log = logging.getLogger(__name__)
 
@@ -130,8 +131,8 @@ class BaseScheduler(object):
                 step_location[0], step_location[1], remain),
             'late': 'Too late for location {:6f},{:6f}; skipping.'.format(
                 step_location[0], step_location[1]),
-            'search': 'Searching at {:6f},{:6f}.'.format(
-                step_location[0], step_location[1]),
+            'search': 'Searching at {:6f},{:6f},{:6f}.'.format(
+                step_location[0], step_location[1], step_location[2]),
             'invalid': ('Invalid response at {:6f},{:6f}, ' +
                         'abandoning location.').format(step_location[0],
                                                        step_location[1])
@@ -170,7 +171,6 @@ class HexSearch(BaseScheduler):
             self.step_distance = 0.070
 
         self.step_limit = args.step_limit
-
         # This will hold the list of locations to scan so it can be reused,
         # instead of recalculating on each loop.
         self.locations = False
@@ -276,7 +276,9 @@ class HexSearch(BaseScheduler):
         # Add the required appear and disappear times.
         locationsZeroed = []
         for step, location in enumerate(results, 1):
-            locationsZeroed.append((step, (location[0], location[1], 0), 0, 0))
+            altitude = get_altitude(self.args, location)
+            locationsZeroed.append(
+                (step, (location[0], location[1], altitude), 0, 0))
         return locationsZeroed
 
     # Schedule the work to be done.
@@ -360,12 +362,11 @@ class SpawnScan(BaseScheduler):
                 with open(self.args.spawnpoint_scanning) as file:
                     self.locations = json.load(file)
             except ValueError as e:
-                log.exception(e)
-                log.error('JSON error: %s; will fallback to database', e)
+                log.error('JSON error: %s; will fallback to database', repr(e))
             except IOError as e:
                 log.error(
                     'Error opening json file: %s; will fallback to database',
-                    e)
+                    repr(e))
 
         # No locations yet? Try the database!
         if not self.locations:
@@ -433,10 +434,10 @@ class SpawnScan(BaseScheduler):
         # locations = [((lat, lng, alt), ts_appears, ts_leaves),...]
         retset = []
         for step, location in enumerate(self.locations, 1):
-            retset.append((step,
-                           (location['lat'], location['lng'], 40.32),
-                           location['appears'],
-                           location['leaves']))
+            altitude = get_altitude(self.args, [location['lat'],
+                                    location['lng']])
+            retset.append((step, (location['lat'], location['lng'], altitude),
+                           location['appears'], location['leaves']))
 
         return retset
 
@@ -599,8 +600,12 @@ class SpeedScan(HexSearch):
                 loc = get_new_coords(loc, xdist, WEST)
                 results.append((loc[0], loc[1], 0))
 
-        return [(step, (location[0], location[1], 0), 0, 0)
-                for step, location in enumerate(results)]
+        generated_locations = []
+        for step, location in enumerate(results):
+            altitude = get_altitude(self.args, location)
+            generated_locations.append(
+                (step, (location[0], location[1], altitude), 0, 0))
+        return generated_locations
 
     def getsize(self):
         return len(self.queues[0])
@@ -667,7 +672,8 @@ class SpeedScan(HexSearch):
 
         except Exception as e:
             log.error(
-                'Exception in band_status: Exception message: {}'.format(e))
+                'Exception in band_status: Exception message: {}'.format(
+                    repr(e)))
 
     # Update the queue, and provide a report on performance of last minutes
     def schedule(self):
@@ -847,7 +853,8 @@ class SpeedScan(HexSearch):
 
             except Exception as e:
                 log.error(
-                    'Performance statistics had an Exception: {}'.format(e))
+                    'Performance statistics had an Exception: {}'.format(
+                        repr(e)))
                 traceback.print_exc(file=sys.stdout)
 
     # Find the best item to scan next
@@ -1064,8 +1071,23 @@ class SchedulerFactory():
 class KeyScheduler(object):
 
     def __init__(self, keys):
-        self.keys = keys
+        self.keys = {}
+        for key in keys:
+            self.keys[key] = {
+                'remaining': 0,
+                'maximum': 0,
+                'peak': 0
+            }
 
-    def scheduler(self):
-        cycle = itertools.cycle(self.keys)
-        return cycle
+        self.key_cycle = itertools.cycle(keys)
+        self.curr_key = ''
+
+    def keys(self):
+        return self.keys
+
+    def current(self):
+        return self.curr_key
+
+    def next(self):
+        self.curr_key = self.key_cycle.next()
+        return self.curr_key
