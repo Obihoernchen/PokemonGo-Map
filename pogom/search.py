@@ -1326,7 +1326,7 @@ def get_api_version(args):
         return r.text[2:] if r.status_code == requests.codes.ok else 0
     except Exception as e:
         log.warning('error on API check: %s', repr(e))
-         return 0
+        return 0
 
 class TooManyLoginAttempts(Exception):
     pass
