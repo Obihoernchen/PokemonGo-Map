@@ -810,7 +810,6 @@ class Timer():
         pprint.pprint(self.times)
 
 
-<<<<<<< HEAD
 # Check if all important tutorial steps have been completed.
 # API argument needs to be a logged in API instance.
 def get_tutorial_state(api, account):
