@@ -666,7 +666,7 @@ class SpeedScan(HexSearch):
         return max(
             ((last_scan_date - datetime.utcnow()).total_seconds() +
              self.args.scan_delay),
-            0)
+            2)
 
     def band_status(self):
         try:
