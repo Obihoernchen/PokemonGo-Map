@@ -877,12 +877,14 @@ class SpeedScan(HexSearch):
 
     # Find the best item to scan next
     def next_item(self, status):
-        start = time.time()
         # score each item in the queue by # of due spawns or scan time bands
         # can be filled
 
+        start = time.time()
         while not self.ready:
             time.sleep(1)
+        end = time.time()
+        start2 = time.time()
 
         now_date = datetime.utcnow()
         now_time = time.time()
@@ -1004,8 +1006,8 @@ class SpeedScan(HexSearch):
 
         messages['search'] = 'Scanning step {} for a {}.'.format(
             best['step'], best['kind'])
-        end = time.time()
-        log.info("SpeedScan.next_item: %f iters: %i distance_calcs: %i" % ((end - start), iters, distance_calcs))
+        end2 = time.time()
+        log.info("SpeedScan.next_item: %f sleeptime: $f iters: %i distance_calcs: %i" % ((end2 - start2), (end - start), iters, distance_calcs))
         return best['step'], best['loc'], 0, 0, messages
 
     def task_done(self, status, parsed=False):
