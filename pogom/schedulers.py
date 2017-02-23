@@ -647,7 +647,8 @@ class SpeedScan(HexSearch):
         if self.status_message:
             message += '\n' + self.status_message
         end = time.time()
-        log.info("SpeedScan.get_overseer_message: %f" % (end - start))
+        log.info("SpeedScan.get_overseer_message: %f queuesize: %i" %
+                 ((end - start), self.getsize()))
         return message
 
     # Refresh queue every 5 minutes
@@ -893,8 +894,11 @@ class SpeedScan(HexSearch):
         worker_loc = [status['latitude'], status['longitude']]
         last_action = status['last_scan_date']
 
+        distance_calcs = 0
+        iters = 0
         # check all scan locations possible in the queue
         for i, item in enumerate(q):
+            iters += 1
             # if already claimed by another worker or done, pass
             if item.get('done', False):
                 continue
@@ -916,6 +920,7 @@ class SpeedScan(HexSearch):
                 break
 
             loc = item['loc']
+            distance_calcs += 1
             distance = equi_rect_distance(loc, worker_loc)
             secs_to_arrival = distance / self.args.kph * 3600
 
@@ -1000,7 +1005,7 @@ class SpeedScan(HexSearch):
         messages['search'] = 'Scanning step {} for a {}.'.format(
             best['step'], best['kind'])
         end = time.time()
-        log.info("SpeedScan.next_item: %f" % (end - start))
+        log.info("SpeedScan.next_item: %f iters: %i distance_calcs: %i" % ((end - start), iters, distance_calcs))
         return best['step'], best['loc'], 0, 0, messages
 
     def task_done(self, status, parsed=False):
