@@ -1007,7 +1007,8 @@ class SpeedScan(HexSearch):
         messages['search'] = 'Scanning step {} for a {}.'.format(
             best['step'], best['kind'])
         end2 = time.time()
-        log.info("SpeedScan.next_item: %f sleeptime: $f iters: %i distance_calcs: %i" % ((end2 - start2), (end - start), iters, distance_calcs))
+        log.info("SpeedScan.next_item: %f sleeptime: %f iters: %i distance_calcs: %i" % (
+            (end2 - start2), (end - start), iters, distance_calcs))
         return best['step'], best['loc'], 0, 0, messages
 
     def task_done(self, status, parsed=False):
