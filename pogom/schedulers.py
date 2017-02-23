@@ -435,7 +435,7 @@ class SpawnScan(BaseScheduler):
         retset = []
         for step, location in enumerate(self.locations, 1):
             altitude = get_altitude(self.args, [location['lat'],
-                                    location['lng']])
+                                                location['lng']])
             retset.append((step, (location['lat'], location['lng'], altitude),
                            location['appears'], location['leaves']))
 
@@ -672,7 +672,8 @@ class SpeedScan(HexSearch):
         try:
             start = time.time()
             bands_total = len(self.locations) * 5
-            bands_filled = int(ScannedLocation.get_band_count_by_cells(self.scans.keys()))
+            bands_filled = ScannedLocation.get_bands_filled_by_cellids(
+                self.scans.keys())
             percent = bands_filled * 100.0 / bands_total
             if bands_total == bands_filled:
                 log.info('Initial spawnpoint scan is complete')
@@ -704,7 +705,7 @@ class SpeedScan(HexSearch):
         start = time.time()
 
         # prefetch all scanned locations
-        scanned_locations = ScannedLocation.get_by_cells(self.scans.keys())
+        scanned_locations = ScannedLocation.get_by_cellids(self.scans.keys())
 
         # extract all spawnpoints into a dict with spawnpoint
         # id -> spawnpoint for easy access later
