@@ -2111,7 +2111,8 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                     'move_2': pokemon_info.get('move_2', None),
                     'height': pokemon_info.get('height_m', None),
                     'weight': pokemon_info.get('weight_kg', None),
-                    'gender': pokemon_info['pokemon_display'].get('gender', None)
+                    'gender': pokemon_info['pokemon_display'].get(
+                        'gender', None)
                 })
 
                 # Check for Unown's alphabetic character.
