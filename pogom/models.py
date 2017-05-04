@@ -1937,8 +1937,28 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
 
             # Scan for IVs/CP and moves.
             pokemon_id = p['pokemon_data']['pokemon_id']
-            encounter_result = None
 
+            # start filling the dict with basic information.
+            pokemon[p['encounter_id']] = {
+                'encounter_id': b64encode(str(p['encounter_id'])),
+                'spawnpoint_id': p['spawn_point_id'],
+                'pokemon_id': p['pokemon_data']['pokemon_id'],
+                'latitude': p['latitude'],
+                'longitude': p['longitude'],
+                'disappear_time': disappear_time,
+                'individual_attack': None,
+                'individual_defense': None,
+                'individual_stamina': None,
+                'move_1': None,
+                'move_2': None,
+                'cp': None,
+                'height': None,
+                'weight': None,
+                'gender': None,
+                'form': None
+            }
+
+            # encounter pokemon.
             if args.encounter and (pokemon_id in args.enc_whitelist):
                 time.sleep(args.encounter_delay)
 
@@ -2040,14 +2060,58 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                                                 + ' is only level '
                                                 + encounter_level + '.')
 
+                            if 'wild_pokemon' in responses['ENCOUNTER']:
+                                pokemon_info = responses['ENCOUNTER'][
+                                    'wild_pokemon']['pokemon_data']
+
+                                # IVs and CP.
+                                individual_attack = pokemon_info.get('individual_attack', 0)
+                                individual_defense = pokemon_info.get('individual_defense', 0)
+                                individual_stamina = pokemon_info.get('individual_stamina', 0)
+                                cp = pokemon_info.get('cp', None)
+
+                                # Logging: let the user know we succeeded.
+                                log.debug('Encounter for Pokémon ID %s'
+                                          + ' at %s, %s successful: '
+                                          + ' %s/%s/%s, %s CP.',
+                                          pokemon_id,
+                                          p['latitude'],
+                                          p['longitude'],
+                                          individual_attack,
+                                          individual_defense,
+                                          individual_stamina,
+                                          cp)
+
+                                # Add encounter data to pokemon dict.
+                                pokemon[p['encounter_id']].update({
+                                    'individual_attack': individual_attack,
+                                    'individual_defense': individual_defense,
+                                    'individual_stamina': individual_stamina,
+                                    'cp': cp,
+                                    'move_1': pokemon_info.get('move_1', None),
+                                    'move_2': pokemon_info.get('move_2', None),
+                                    'height': pokemon_info.get('height_m', None),
+                                    'weight': pokemon_info.get('weight_kg', None),
+                                    'gender': pokemon_info['pokemon_display'].get(
+                                        'gender', None)
+                                })
+
+                                # Check for Unown's alphabetic character.
+                                if pokemon_info['pokemon_id'] == 201:
+                                    pokemon[p['encounter_id']]['form'] = pokemon_info[
+                                        'pokemon_display'].get('form', None)
+                            else:
+                                log.error('Encountering pokemon with account'
+                                    + ' %s failed.', hlvl_account['username'])
+
+                                # Helping out the GC.
+                                del encounter_result
+                                del responses
+
                         # We're done with the encounter. If it's from an
                         # AccountSet, release account back to the pool.
                         if using_accountset:
                             account_sets.release(hlvl_account)
-
-                        # Clear the response for memory management.
-                        encounter_result = clear_dict_response(
-                            encounter_result)
                     else:
                         # Something happened. Clean up.
 
@@ -2055,71 +2119,14 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                         # AccountSet, release account back to the pool.
                         if using_accountset:
                             account_sets.release(hlvl_account)
+
+                        log.error('Encountering pokemon with account %s failed.',
+                            hlvl_account['username'])
                 else:
                     log.error('No L30 accounts are available, please'
                               + ' consider adding more. Skipping encounter.')
 
-            pokemon[p['encounter_id']] = {
-                'encounter_id': b64encode(str(p['encounter_id'])),
-                'spawnpoint_id': p['spawn_point_id'],
-                'pokemon_id': p['pokemon_data']['pokemon_id'],
-                'latitude': p['latitude'],
-                'longitude': p['longitude'],
-                'disappear_time': disappear_time,
-                'individual_attack': None,
-                'individual_defense': None,
-                'individual_stamina': None,
-                'move_1': None,
-                'move_2': None,
-                'cp': None,
-                'height': None,
-                'weight': None,
-                'gender': None,
-                'form': None
-            }
-
-            if (encounter_result is not None and 'wild_pokemon'
-                    in encounter_result['responses']['ENCOUNTER']):
-                pokemon_info = encounter_result['responses'][
-                    'ENCOUNTER']['wild_pokemon']['pokemon_data']
-
-                # IVs and CP.
-                individual_attack = pokemon_info.get('individual_attack', 0)
-                individual_defense = pokemon_info.get('individual_defense', 0)
-                individual_stamina = pokemon_info.get('individual_stamina', 0)
-                cp = pokemon_info.get('cp', None)
-
-                # Logging: let the user know we succeeded.
-                log.debug('Encounter for Pokémon ID %s'
-                          + ' at %s, %s successful: '
-                          + ' %s/%s/%s, %s CP.',
-                          pokemon_id,
-                          p['latitude'],
-                          p['longitude'],
-                          individual_attack,
-                          individual_defense,
-                          individual_stamina,
-                          cp)
-
-                # Add encounter data to pokemon dict.
-                pokemon[p['encounter_id']].update({
-                    'individual_attack': individual_attack,
-                    'individual_defense': individual_defense,
-                    'individual_stamina': individual_stamina,
-                    'cp': cp,
-                    'move_1': pokemon_info.get('move_1', None),
-                    'move_2': pokemon_info.get('move_2', None),
-                    'height': pokemon_info.get('height_m', None),
-                    'weight': pokemon_info.get('weight_kg', None),
-                    'gender': pokemon_info['pokemon_display'].get(
-                        'gender', None)
-                })
-
-                # Check for Unown's alphabetic character.
-                if pokemon_info['pokemon_id'] == 201:
-                    pokemon[p['encounter_id']]['form'] = pokemon_info[
-                        'pokemon_display'].get('form', None)
-
+            # send pokemon to webhook as well.
             if args.webhooks:
                 pokemon_id = p['pokemon_data']['pokemon_id']
                 if (pokemon_id in args.webhook_whitelist or
