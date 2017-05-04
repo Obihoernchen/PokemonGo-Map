@@ -1935,14 +1935,13 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
             printPokemon(p['pokemon_data']['pokemon_id'], p[
                          'latitude'], p['longitude'], disappear_time)
 
-            # Scan for IVs/CP and moves.
             pokemon_id = p['pokemon_data']['pokemon_id']
 
             # start filling the dict with basic information.
             pokemon[p['encounter_id']] = {
                 'encounter_id': b64encode(str(p['encounter_id'])),
                 'spawnpoint_id': p['spawn_point_id'],
-                'pokemon_id': p['pokemon_data']['pokemon_id'],
+                'pokemon_id': pokemon_id,
                 'latitude': p['latitude'],
                 'longitude': p['longitude'],
                 'disappear_time': disappear_time,
@@ -1958,7 +1957,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                 'form': None
             }
 
-            # encounter pokemon.
+            # Scan for IVs/CP and moves.
             if args.encounter and (pokemon_id in args.enc_whitelist):
                 time.sleep(args.encounter_delay)
 
@@ -2060,14 +2059,19 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                                                 + ' is only level '
                                                 + encounter_level + '.')
 
+                            # Everything seems to be fine.
+                            # Let's add this information to the dict.
                             if 'wild_pokemon' in responses['ENCOUNTER']:
                                 pokemon_info = responses['ENCOUNTER'][
                                     'wild_pokemon']['pokemon_data']
 
                                 # IVs and CP.
-                                individual_attack = pokemon_info.get('individual_attack', 0)
-                                individual_defense = pokemon_info.get('individual_defense', 0)
-                                individual_stamina = pokemon_info.get('individual_stamina', 0)
+                                individual_attack = pokemon_info.get(
+                                    'individual_attack', 0)
+                                individual_defense = pokemon_info.get(
+                                    'individual_defense', 0)
+                                individual_stamina = pokemon_info.get(
+                                    'individual_stamina', 0)
                                 cp = pokemon_info.get('cp', None)
 
                                 # Logging: let the user know we succeeded.
@@ -2098,15 +2102,17 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
 
                                 # Check for Unown's alphabetic character.
                                 if pokemon_info['pokemon_id'] == 201:
-                                    pokemon[p['encounter_id']]['form'] = pokemon_info[
-                                        'pokemon_display'].get('form', None)
+                                    pokemon[p['encounter_id']]['form'] =
+                                        pokemon_info['pokemon_display'].get(
+                                            'form', None)
                             else:
                                 log.error('Encountering pokemon with account'
-                                    + ' %s failed.', hlvl_account['username'])
+                                    + ' %s failed. Pokemon info missing.',
+                                    hlvl_account['username'])
 
-                                # Helping out the GC.
-                                del encounter_result
-                                del responses
+                        # Helping out the GC.
+                        del encounter_result
+                        del responses
 
                         # We're done with the encounter. If it's from an
                         # AccountSet, release account back to the pool.
@@ -2120,8 +2126,8 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                         if using_accountset:
                             account_sets.release(hlvl_account)
 
-                        log.error('Encountering pokemon with account %s failed.',
-                            hlvl_account['username'])
+                        log.error('Encountering pokemon with account %s failed.'
+                            + 'Empty result.', hlvl_account['username'])
                 else:
                     log.error('No L30 accounts are available, please'
                               + ' consider adding more. Skipping encounter.')
