@@ -869,7 +869,7 @@ function setupGymMarker(item) {
                 url: 'static/icons/' + item['raid']['pokemon_id'] + '.png',
                 scaledSize: new google.maps.Size(72, 72)
             },
-            zIndex: 5
+            zIndex: 500
         })
     } else if (item['raid'] !== null && item['raid']['end'] > Date.now()) {
         marker = new google.maps.Marker({
@@ -946,6 +946,7 @@ function updateGymMarker(item, marker) {
             url: 'static/icons/' + item['raid']['pokemon_id'] + '.png',
             scaledSize: new google.maps.Size(72, 72)
         })
+        marker.setZIndex(500)
     } else if (item['raid'] !== null && item['raid']['end'] > Date.now()) {
         marker.setIcon({
             url: 'static/raids/level_' + item['raid']['level'] + '.png',
@@ -956,6 +957,7 @@ function updateGymMarker(item, marker) {
             url: 'static/forts/' + Store.get('gymMarkerStyle') + '/' + gymTypes[item['team_id']] + '_' + (6 - item['slots_available']) + '.png',
             scaledSize: new google.maps.Size(48, 48)
         })
+        marker.setZIndex(1)
     }
     marker.infoWindow.setContent(gymLabel(gymTypes[item['team_id']], item['team_id'], item['gym_points'], item['latitude'], item['longitude'], item['last_scanned'], item['last_modified'], item['name'], item['pokemon'], item['gym_id'], item['raid']))
     return marker
@@ -1875,7 +1877,7 @@ function showGymDetails(id) { // eslint-disable-line no-unused-vars
                 </div>
             </center>
         `
-        if (result.raid) {
+        if (result.raid && result.raid.end > Date.now()) {
             var raid = result.raid
             var raidStartStr = getTimeStr(raid['start'])
             var raidEndsStr = getTimeStr(raid['end'])
