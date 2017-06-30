@@ -1209,17 +1209,18 @@ def map_request(api, position, no_jitter=False):
         req.check_awarded_badges()
         req.download_settings()
         req.get_buddy_walked()
+        req.get_inbox(is_history=True)
         response = req.call()
         response = clear_dict_response(response, True)
         return response
 
     except HashingOfflineException as e:
-        log.warning('Hashing server is unreachable, it might be offline.')
+        log.error('Hashing server is unreachable, it might be offline.')
     except BadHashRequestException as e:
-        log.warning('Invalid or expired hashing key: %s.',
-                    api._hash_server_token)
+        log.error('Invalid or expired hashing key: %s.',
+                  api._hash_server_token)
     except Exception as e:
-        log.warning('Exception while downloading map: %s', repr(e))
+        log.exception('Exception while downloading map: %s', repr(e))
         return False
 
 
@@ -1229,23 +1230,25 @@ def gym_request(api, position, gym, api_version):
                  gym['gym_id'], gym['latitude'], gym['longitude'],
                  calc_distance(position, [gym['latitude'], gym['longitude']]))
         req = api.create_request()
-        req.gym_get_info(gym_id=gym['gym_id'],
-                         player_lat_degrees=f2i(position[0]),
-                         player_lng_degrees=f2i(position[1]),
-                         gym_lat_degrees=gym['latitude'],
-                         gym_lng_degrees=gym['longitude'])
+        req.gym_get_info(
+            gym_id=gym['gym_id'],
+            player_lat_degrees=f2i(position[0]),
+            player_lng_degrees=f2i(position[1]),
+            gym_lat_degrees=gym['latitude'],
+            gym_lng_degrees=gym['longitude'])
         req.check_challenge()
         req.get_hatched_eggs()
         req.get_inventory()
         req.check_awarded_badges()
         req.download_settings()
         req.get_buddy_walked()
+        req.get_inbox(is_history=True)
         response = req.call()
         response = clear_dict_response(response)
         return response
 
     except Exception as e:
-        log.warning('Exception while downloading gym details: %s.', repr(e))
+        log.exception('Exception while downloading gym details: %s.', repr(e))
         return False
 
 
